@@ -7,9 +7,26 @@ const btnCancel = $(".btn-cancel");
 const todoForm = $(".todo-app-form");
 const titleInput = $("#taskTitle");
 const todoList = $("#todoList");
+const searchInput = $(".search-input");
 
-// Khai báo biến editIndex để kiểm tra có đang trong trạng thái edit không
-let editIndex = null;
+const todoTasks = JSON.parse(localStorage.getItem("todoTasks")) ?? [];
+// const taskFilter = [];
+// search
+searchInput.oninput = function (event) {
+    const input = event.target.value.trim().toLowerCase();
+
+    // nếu input có khác rỗng lấy giá trị của input
+    const result = input
+        ? todoTasks.filter((task) => {
+              return task.title.toLowerCase().includes(input);
+          })
+        : todoTasks;
+
+    renderTask(result);
+};
+
+// Khai báo biến editId để kiểm tra có đang trong trạng thái edit không
+let editId = null;
 
 // show Modal
 function openFormModal() {
@@ -42,8 +59,8 @@ function closeForm() {
     }, 300);
     todoForm.reset();
 
-    // gán lại editIndex về null
-    editIndex = null;
+    // gán lại editId về null
+    editId = null;
 }
 
 // hiển thị modal "thêm mới"
@@ -53,8 +70,6 @@ addBtn.onclick = openFormModal;
 modalClose.onclick = closeForm;
 btnCancel.onclick = closeForm;
 
-const todoTasks = JSON.parse(localStorage.getItem("todoTasks")) ?? [];
-
 // Xử lý khi form submit
 todoForm.onsubmit = (event) => {
     event.preventDefault();
@@ -63,18 +78,33 @@ todoForm.onsubmit = (event) => {
     const formData = Object.fromEntries(new FormData(todoForm));
 
     // Kiểm tra có đang trong trạng thái Edit hay không
-    if (editIndex) {
-        todoTasks[editIndex] = formData;
+    if (editId) {
+        //tìm vị trí index
+        const index = todoTasks.findIndex((task) => task.id === Number(editId));
+
+        //Nếu tìm được
+        if (index !== -1) {
+            //lưu lại giá trị cũ
+            const oldTask = todoTasks[index];
+
+            // cập nhật lại giá trị mới
+            todoTasks[index] = {
+                ...formData,
+                id: oldTask.id,
+                isCompleted: oldTask.isCompleted,
+            };
+        }
     }
     // logic thêm mới
     else {
         formData.isCompleted = false;
+        formData.id = Date.now();
         // thêm task vào đầu danh sách
         todoTasks.unshift(formData);
     }
 
     // lưu toàn bộ danh sách task vào localStorage
-    localStorage.setItem("todoTasks", JSON.stringify(todoTasks));
+    saveTasks();
 
     // Đóng modal
     closeForm();
@@ -83,18 +113,25 @@ todoForm.onsubmit = (event) => {
     renderTask(todoTasks);
 };
 
+// lưu vào localStorage
+function saveTasks() {
+    localStorage.setItem("todoTasks", JSON.stringify(todoTasks));
+}
+
 //lắng nghe sự kiện trên todoList khi click các options nó nổi bọt lên
 todoList.onclick = (event) => {
     // closest tìm selector click không thấy tìm lên cha
     const editBtn = event.target.closest(".edit-btn");
+    const deleteBtn = event.target.closest(".delete-btn");
+    const completeBtn = event.target.closest(".complete-btn");
 
     //khi click vào editBtn
     if (editBtn) {
-        const taskIndex = editBtn.dataset.index;
-        const task = todoTasks[taskIndex];
+        const taskId = Number(editBtn.dataset.id);
+        const task = todoTasks.find((task) => task.id === taskId);
 
-        // gán giá trị cho biến editIndex
-        editIndex = taskIndex;
+        // gán giá trị cho biến editId
+        editId = taskId;
 
         // lặp qua để lấy key và value trong object task
         for (const key in task) {
@@ -103,6 +140,7 @@ todoList.onclick = (event) => {
             // selector đến các thẻ có attribute "name"
             const input = $(`[name="${key}"]`);
             //Khi lấy được thì set lại value cho các thẻ đó
+
             if (input) {
                 input.value = value;
             }
@@ -123,6 +161,29 @@ todoList.onclick = (event) => {
 
         openFormModal();
     }
+
+    // delete
+    if (deleteBtn) {
+        const taskId = deleteBtn.dataset.id;
+        const index = todoTasks.findIndex((task) => task.id === Number(taskId));
+        const task = todoTasks[index];
+
+        if (confirm(`Bạn chắc chắn muốn xóa công việc "${task.title}" ?`)) {
+            todoTasks.splice(index, 1);
+            saveTasks();
+            renderTask(todoTasks);
+        }
+    }
+
+    // complete
+    if (completeBtn) {
+        const taskId = completeBtn.dataset.id;
+        const index = todoTasks.findIndex((task) => task.id === Number(taskId));
+        const task = todoTasks[index];
+        task.isCompleted = !task.isCompleted;
+        saveTasks();
+        renderTask(todoTasks);
+    }
 };
 
 function renderTask(tasks) {
@@ -141,17 +202,17 @@ function renderTask(tasks) {
                 <button class="task-menu">
                     <i class="fa-solid fa-ellipsis fa-icon"></i>
                     <div class="dropdown-menu">
-                        <div class="dropdown-item edit-btn" data-index="${index}">
+                        <div class="dropdown-item edit-btn" data-id="${task.id}">
                             <i
                                 class="fa-solid fa-pen-to-square fa-icon"
                             ></i>
                             Edit
                         </div>
-                        <div class="dropdown-item complete">
+                        <div class="dropdown-item complete complete-btn" data-id="${task.id}">
                             <i class="fa-solid fa-check fa-icon"></i>
                             ${task.isCompleted ? "Mark as Active" : "Mark as Complete"}
                         </div>
-                        <div class="dropdown-item delete delete-btn">
+                        <div class="dropdown-item delete delete-btn" data-id="${task.id}">
                             <i class="fa-solid fa-trash fa-icon"></i>
                             Delete
                         </div>
