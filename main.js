@@ -68,7 +68,7 @@ function setActiveTab(activeTab) {
     activeTab.classList.add("active");
 }
 
-// Khi chọn tab
+// Khi chọn tab set lại state và thêm class active
 tabAll.onclick = () => {
     currentFilter = "all";
     setActiveTab(tabAll);
@@ -265,9 +265,9 @@ function renderTask(tasks) {
     const htmls = tasks
         .map(
             (task) =>
-                `<div class="task-card ${task.color} ${task.isCompleted ? "completed" : ""}">
+                `<div class="task-card ${escapeHTML(task.color)} ${task.isCompleted ? "completed" : ""}">
             <div class="task-header">
-                <h3 class="task-title">${task.title}</h3>
+                <h3 class="task-title">${escapeHTML(task.title)}</h3>
                 <button class="task-menu">
                     <i class="fa-solid fa-ellipsis fa-icon"></i>
                     <div class="dropdown-menu">
@@ -289,9 +289,9 @@ function renderTask(tasks) {
                 </button>
             </div>
             <p class="task-description">
-                ${task.description}
+                ${escapeHTML(task.description)}
             </p>
-            <div class="task-time">${task.startTime} - ${task.endTime}</div>
+            <div class="task-time">${escapeHTML(task.startTime)} - ${escapeHTML(task.endTime)}</div>
         </div>`,
         )
         .join("");
@@ -303,3 +303,11 @@ function renderTask(tasks) {
 // mặc định filter là all
 setActiveTab(tabAll);
 render();
+
+// Chuyển chuỗi thành dạng an toàn HTML (tránh XSS)
+//// Escape ký tự HTML (<, >, &, ...) để hiển thị như text, không bị render thành tag
+function escapeHTML(html) {
+    const div = document.createElement("div");
+    div.textContent = html;
+    return div.innerHTML;
+}
