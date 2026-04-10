@@ -19,22 +19,28 @@ const todoTasks = JSON.parse(localStorage.getItem("todoTasks")) ?? [];
 
 // search
 searchInput.oninput = function (event) {
+    //lưu giá trị input vào state searchValue
     searchValue = event.target.value.trim().toLowerCase();
+    // gọi hàm render
     render();
 };
 
 // Hàm filter chung
 function getFilteredTasks() {
+    //copy todoTasks để xử lý filter
     let result = [...todoTasks];
 
+    //nếu currentFilter là "complete"
     if (currentFilter === "complete") {
         result = result.filter((task) => task.isCompleted);
     }
 
+    //nếu currentFilter là "active"
     if (currentFilter === "active") {
         result = result.filter((task) => !task.isCompleted);
     }
 
+    // Nếu search
     if (searchValue) {
         result = result.filter((task) =>
             task.title.toLowerCase().includes(searchValue),
@@ -46,8 +52,10 @@ function getFilteredTasks() {
 
 // Hàm render
 function render() {
+    //nhận giá trị trả về từ hàm getFilteredTasks
     const tasks = getFilteredTasks();
 
+    // và truyền cho hàm renderTask để render ra ui
     renderTask(tasks);
 }
 
@@ -85,6 +93,8 @@ let editId = null;
 // show Modal
 function openFormModal() {
     formAdd.classList.add("show");
+
+    //do thuộc tính transition từ css nên setTimeout lại để focus
     setTimeout(() => {
         titleInput.focus();
     }, 100);
@@ -133,12 +143,12 @@ todoForm.onsubmit = (event) => {
 
     // Kiểm tra có đang trong trạng thái Edit hay không
     if (editId !== null) {
-        //tìm vị trí index
+        //tìm vị trí index của task đang edit
         const index = todoTasks.findIndex((task) => task.id === Number(editId));
 
         //Nếu tìm được
         if (index !== -1) {
-            //lưu lại giá trị cũ
+            //Nhận lại giá trị cũ để giữ lại id và trạng thái khi cập nhật
             const oldTask = todoTasks[index];
 
             // cập nhật lại giá trị mới
@@ -244,6 +254,7 @@ todoList.onclick = (event) => {
     }
 };
 
+// render
 function renderTask(tasks) {
     //Kiểm tra task có trống không
     if (!tasks.length) {
