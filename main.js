@@ -8,9 +8,14 @@ const todoForm = $(".todo-app-form");
 const titleInput = $("#taskTitle");
 const todoList = $("#todoList");
 const searchInput = $(".search-input");
+const tabComplete = $(".tab-complete");
+const tabActive = $(".tab-active");
+const tabAll = $(".tab-all");
+// Quản lý trạng thái filter
+let currentFilter = "all";
 
 const todoTasks = JSON.parse(localStorage.getItem("todoTasks")) ?? [];
-// const taskFilter = [];
+
 // search
 searchInput.oninput = function (event) {
     const input = event.target.value.trim().toLowerCase();
@@ -23,6 +28,59 @@ searchInput.oninput = function (event) {
         : todoTasks;
 
     renderTask(result);
+};
+
+// Hàm filter chung
+function getFilteredTasks() {
+    if (currentFilter === "complete") {
+        return todoTasks.filter((task) => task.isCompleted);
+    }
+
+    if (currentFilter === "active") {
+        return todoTasks.filter((task) => !task.isCompleted);
+    }
+
+    return todoTasks;
+}
+
+// Hàm render
+function render() {
+    const tasks = getFilteredTasks();
+
+    if (!tasks.length) {
+        todoList.innerHTML = "<p>Không có công việc!</p>";
+        return;
+    }
+
+    renderTask(tasks);
+}
+
+// xử lý active tab
+function setActiveTab(activeTab) {
+    [tabAll, tabActive, tabComplete].forEach((tab) =>
+        tab.classList.remove("active"),
+    );
+
+    activeTab.classList.add("active");
+}
+
+// Khi chọn tab
+tabAll.onclick = () => {
+    currentFilter = "all";
+    setActiveTab(tabAll);
+    render();
+};
+
+tabComplete.onclick = () => {
+    currentFilter = "complete";
+    setActiveTab(tabComplete);
+    render();
+};
+
+tabActive.onclick = () => {
+    currentFilter = "active";
+    setActiveTab(tabActive);
+    render();
 };
 
 // Khai báo biến editId để kiểm tra có đang trong trạng thái edit không
@@ -97,6 +155,7 @@ todoForm.onsubmit = (event) => {
     }
     // logic thêm mới
     else {
+        // thêm 2 thuộc tính để xử lý và nhận diện
         formData.isCompleted = false;
         formData.id = Date.now();
         // thêm task vào đầu danh sách
@@ -110,7 +169,7 @@ todoForm.onsubmit = (event) => {
     closeForm();
 
     // render
-    renderTask(todoTasks);
+    render();
 };
 
 // lưu vào localStorage
@@ -171,7 +230,7 @@ todoList.onclick = (event) => {
         if (confirm(`Bạn chắc chắn muốn xóa công việc "${task.title}" ?`)) {
             todoTasks.splice(index, 1);
             saveTasks();
-            renderTask(todoTasks);
+            render();
         }
     }
 
@@ -182,20 +241,20 @@ todoList.onclick = (event) => {
         const task = todoTasks[index];
         task.isCompleted = !task.isCompleted;
         saveTasks();
-        renderTask(todoTasks);
+        render();
     }
 };
 
 function renderTask(tasks) {
     //Kiểm tra task có trống không
     if (!tasks.length) {
-        todoList.innerHTML = "<p>Chưa có công việc nào!</p>";
+        todoList.innerHTML = "<p>Không có công việc!</p>";
         return;
     }
 
     const htmls = tasks
         .map(
-            (task, index) =>
+            (task) =>
                 `<div class="task-card ${task.color} ${task.isCompleted ? "completed" : ""}">
             <div class="task-header">
                 <h3 class="task-title">${task.title}</h3>
@@ -231,5 +290,6 @@ function renderTask(tasks) {
     todoList.innerHTML = htmls;
 }
 
-//Render lần đầu
-renderTask(todoTasks);
+// mặc định filter là "all"
+setActiveTab(tabAll);
+render();
