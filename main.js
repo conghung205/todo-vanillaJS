@@ -11,6 +11,8 @@ const searchInput = $(".search-input");
 const tabComplete = $(".tab-complete");
 const tabActive = $(".tab-active");
 const tabAll = $(".tab-all");
+// state search
+let searchValue = "";
 // Quản lý trạng thái filter
 let currentFilter = "all";
 
@@ -18,39 +20,34 @@ const todoTasks = JSON.parse(localStorage.getItem("todoTasks")) ?? [];
 
 // search
 searchInput.oninput = function (event) {
-    const input = event.target.value.trim().toLowerCase();
-
-    // nếu input có khác rỗng lấy giá trị của input
-    const result = input
-        ? todoTasks.filter((task) => {
-              return task.title.toLowerCase().includes(input);
-          })
-        : todoTasks;
-
-    renderTask(result);
+    searchValue = event.target.value.trim().toLowerCase();
+    render();
 };
 
 // Hàm filter chung
 function getFilteredTasks() {
+    let result = [...todoTasks];
+
     if (currentFilter === "complete") {
-        return todoTasks.filter((task) => task.isCompleted);
+        result = result.filter((task) => task.isCompleted);
     }
 
     if (currentFilter === "active") {
-        return todoTasks.filter((task) => !task.isCompleted);
+        result = result.filter((task) => !task.isCompleted);
     }
 
-    return todoTasks;
+    if (searchValue) {
+        result = result.filter((task) =>
+            task.title.toLowerCase().includes(searchValue),
+        );
+    }
+
+    return result;
 }
 
 // Hàm render
 function render() {
     const tasks = getFilteredTasks();
-
-    if (!tasks.length) {
-        todoList.innerHTML = "<p>Không có công việc!</p>";
-        return;
-    }
 
     renderTask(tasks);
 }
@@ -136,7 +133,7 @@ todoForm.onsubmit = (event) => {
     const formData = Object.fromEntries(new FormData(todoForm));
 
     // Kiểm tra có đang trong trạng thái Edit hay không
-    if (editId) {
+    if (editId !== null) {
         //tìm vị trí index
         const index = todoTasks.findIndex((task) => task.id === Number(editId));
 
@@ -188,6 +185,9 @@ todoList.onclick = (event) => {
     if (editBtn) {
         const taskId = Number(editBtn.dataset.id);
         const task = todoTasks.find((task) => task.id === taskId);
+
+        // nếu không tìm thấy
+        if (!task) return;
 
         // gán giá trị cho biến editId
         editId = taskId;
@@ -290,6 +290,6 @@ function renderTask(tasks) {
     todoList.innerHTML = htmls;
 }
 
-// mặc định filter là "all"
+// mặc định filter là all
 setActiveTab(tabAll);
 render();
