@@ -11,9 +11,8 @@ const searchInput = $(".search-input");
 const tabComplete = $(".tab-complete");
 const tabActive = $(".tab-active");
 const tabAll = $(".tab-all");
-// state search
+// state
 let searchValue = "";
-// Quản lý trạng thái filter
 let currentFilter = "all";
 
 const todoTasks = JSON.parse(localStorage.getItem("todoTasks")) ?? [];
