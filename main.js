@@ -11,24 +11,31 @@ const searchInput = $(".search-input");
 const tabComplete = $(".tab-complete");
 const tabActive = $(".tab-active");
 const tabAll = $(".tab-all");
+
 // state
 let searchValue = "";
 let currentFilter = "all";
+let todoTasks = [];
 
-const todoTasks = JSON.parse(localStorage.getItem("todoTasks")) ?? [];
+let debounceTimer;
 
 // search
-searchInput.oninput = function (event) {
+searchInput.oninput = async (event) => {
+    const value = event.target.value || "";
+
+    clearTimeout(debounceTimer);
+
     //lưu giá trị input vào state searchValue
-    searchValue = event.target.value.trim().toLowerCase();
-    // gọi hàm render
-    render();
+    debounceTimer = setTimeout(() => {
+        searchValue = value.trim().toLowerCase();
+        render();
+    }, 300);
 };
 
 // Hàm filter chung
-function getFilteredTasks() {
+function getFilteredTasks(tasks) {
     //copy todoTasks để xử lý filter
-    let result = [...todoTasks];
+    let result = [...tasks];
 
     //nếu currentFilter là "complete"
     if (currentFilter === "complete") {
@@ -50,13 +57,51 @@ function getFilteredTasks() {
     return result;
 }
 
-// Hàm render
-function render() {
-    //nhận giá trị trả về từ hàm getFilteredTasks
-    const tasks = getFilteredTasks();
+async function getTasks() {
+    const res = await fetch("http://localhost:3000/tasks");
+    return await res.json();
+}
+async function addTasks(data) {
+    const res = await fetch("http://localhost:3000/tasks", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    });
+    return await res.json();
+}
+async function updateTasks(id, data) {
+    const res = await fetch(`http://localhost:3000/tasks/${id}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+    });
+    return await res.json();
+}
+async function deleteTasks(id) {
+    const res = await fetch(`http://localhost:3000/tasks/${id}`, {
+        method: "DELETE",
+        headers: {
+            "Content-Type": "application/json",
+        },
+    });
+    return await res.json();
+}
 
-    // và truyền cho hàm renderTask để render ra ui
-    renderTask(tasks);
+// init
+async function init() {
+    todoTasks = await getTasks();
+    render();
+}
+
+// function render
+function render() {
+    const todoTasksFilter = getFilteredTasks(todoTasks);
+
+    renderTask(todoTasksFilter);
 }
 
 // xử lý active tab
@@ -69,25 +114,24 @@ function setActiveTab(activeTab) {
 }
 
 // Khi chọn tab set lại state và thêm class active
-tabAll.onclick = () => {
+tabAll.onclick = async () => {
     currentFilter = "all";
     setActiveTab(tabAll);
     render();
 };
 
-tabComplete.onclick = () => {
+tabComplete.onclick = async () => {
     currentFilter = "complete";
     setActiveTab(tabComplete);
     render();
 };
 
-tabActive.onclick = () => {
+tabActive.onclick = async () => {
     currentFilter = "active";
     setActiveTab(tabActive);
     render();
 };
 
-// Khai báo biến editId để kiểm tra có đang trong trạng thái edit không
 let editId = null;
 
 // show Modal
@@ -127,15 +171,13 @@ function closeForm() {
     editId = null;
 }
 
-// hiển thị modal "thêm mới"
 addBtn.onclick = openFormModal;
 
-// Đóng modal "thêm mới"
 modalClose.onclick = closeForm;
 btnCancel.onclick = closeForm;
 
 // Xử lý khi form submit
-todoForm.onsubmit = (event) => {
+todoForm.onsubmit = async (event) => {
     event.preventDefault();
 
     // lấy tất cả form data có thuộc tính name (dữ liệu từ các input, textarea...)
@@ -143,48 +185,37 @@ todoForm.onsubmit = (event) => {
 
     // Kiểm tra có đang trong trạng thái Edit hay không
     if (editId !== null) {
-        //tìm vị trí index của task đang edit
-        const index = todoTasks.findIndex((task) => task.id === Number(editId));
-
         //Nếu tìm được
-        if (index !== -1) {
-            //Nhận lại giá trị cũ để giữ lại id và trạng thái khi cập nhật
-            const oldTask = todoTasks[index];
+        const newTask = {
+            ...formData,
+        };
 
-            // cập nhật lại giá trị mới
-            todoTasks[index] = {
-                ...formData,
-                id: oldTask.id,
-                isCompleted: oldTask.isCompleted,
-            };
-        }
+        // update and render
+        const updatedTask = await updateTasks(editId, newTask);
+
+        todoTasks = todoTasks.map((task) =>
+            task.id == editId ? { ...task, ...updatedTask } : task,
+        );
     }
     // logic thêm mới
     else {
-        // thêm 2 thuộc tính để xử lý và nhận diện
-        formData.isCompleted = false;
-        formData.id = Date.now();
-        // thêm task vào đầu danh sách
-        todoTasks.unshift(formData);
+        const newTask = {
+            ...formData,
+            isCompleted: false,
+            createdAt: new Date(),
+        };
+
+        const createdTask = await addTasks(newTask);
+        todoTasks.push(createdTask);
     }
 
-    // lưu toàn bộ danh sách task vào localStorage
-    saveTasks();
-
-    // Đóng modal
+    // close and render
     closeForm();
-
-    // render
     render();
 };
 
-// lưu vào localStorage
-function saveTasks() {
-    localStorage.setItem("todoTasks", JSON.stringify(todoTasks));
-}
-
 //lắng nghe sự kiện trên todoList khi click các options nó nổi bọt lên
-todoList.onclick = (event) => {
+todoList.onclick = async (event) => {
     // closest tìm selector click không thấy tìm lên cha
     const editBtn = event.target.closest(".edit-btn");
     const deleteBtn = event.target.closest(".delete-btn");
@@ -192,7 +223,7 @@ todoList.onclick = (event) => {
 
     //khi click vào editBtn
     if (editBtn) {
-        const taskId = Number(editBtn.dataset.id);
+        const taskId = editBtn.dataset.id;
         const task = todoTasks.find((task) => task.id === taskId);
 
         // nếu không tìm thấy
@@ -207,8 +238,8 @@ todoList.onclick = (event) => {
 
             // selector đến các thẻ có attribute "name"
             const input = $(`[name="${key}"]`);
-            //Khi lấy được thì set lại value cho các thẻ đó
 
+            //Khi lấy được thì lấy giá trị cũ đưa vào input
             if (input) {
                 input.value = value;
             }
@@ -233,12 +264,16 @@ todoList.onclick = (event) => {
     // delete
     if (deleteBtn) {
         const taskId = deleteBtn.dataset.id;
-        const index = todoTasks.findIndex((task) => task.id === Number(taskId));
-        const task = todoTasks[index];
+        const currentTask = todoTasks.find((t) => t.id == taskId);
 
-        if (confirm(`Bạn chắc chắn muốn xóa công việc "${task.title}" ?`)) {
-            todoTasks.splice(index, 1);
-            saveTasks();
+        if (!currentTask) return;
+
+        if (
+            confirm(`Bạn chắc chắn muốn xóa công việc "${currentTask.title}" ?`)
+        ) {
+            await deleteTasks(taskId);
+            todoTasks = todoTasks.filter((task) => task.id != taskId);
+
             render();
         }
     }
@@ -246,10 +281,16 @@ todoList.onclick = (event) => {
     // complete
     if (completeBtn) {
         const taskId = completeBtn.dataset.id;
-        const index = todoTasks.findIndex((task) => task.id === Number(taskId));
-        const task = todoTasks[index];
-        task.isCompleted = !task.isCompleted;
-        saveTasks();
+        const task = todoTasks.find((t) => t.id === taskId);
+
+        const updated = await updateTasks(taskId, {
+            isCompleted: !task.isCompleted,
+        });
+
+        todoTasks = todoTasks.map((t) =>
+            t.id == taskId ? { ...t, ...updated } : t,
+        );
+
         render();
     }
 };
@@ -301,8 +342,9 @@ function renderTask(tasks) {
 }
 
 // mặc định filter là all
+
+init();
 setActiveTab(tabAll);
-render();
 
 // Chuyển chuỗi thành dạng an toàn HTML (tránh XSS)
 //// Escape ký tự HTML (<, >, &, ...) để hiển thị như text, không bị render thành tag
